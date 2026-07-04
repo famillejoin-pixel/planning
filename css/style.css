@@ -107,6 +107,16 @@ body {
     font-size: 0.75rem;
 }
 
+.btn-danger {
+    border-color: #b42318 !important;
+    color: #b42318 !important;
+}
+
+.btn-danger:hover {
+    background: #b42318 !important;
+    color: white !important;
+}
+
 .btn:hover {
     opacity: 0.85;
 }
@@ -160,6 +170,11 @@ tr:hover td {
     z-index: 2;
 }
 
+.total-row td {
+    background: #f0f9ff;
+    font-weight: 700;
+}
+
 /* Staff cell */
 .staff-activity-cell {
     display: flex;
@@ -168,13 +183,15 @@ tr:hover td {
     align-items: center;
 }
 
-.staff-activity-cell select {
+.staff-activity-cell select,
+.staff-activity-cell input {
     font-size: 0.7rem;
     padding: 3px 6px;
     border: 1px solid #ddd;
     border-radius: 4px;
     max-width: 90px;
     background: white;
+    text-align: center;
 }
 
 .staff-activity-cell .hours-row {
@@ -184,7 +201,7 @@ tr:hover td {
     font-size: 0.7rem;
 }
 
-.hour-select {
+.hour-input {
     padding: 2px 4px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -194,7 +211,7 @@ tr:hover td {
     background: white;
 }
 
-.hour-select:focus {
+.hour-input:focus {
     outline: 2px solid #1e293b;
     border-color: transparent;
 }
@@ -217,9 +234,6 @@ tr:hover td {
 }
 .dimanche-row:hover td {
     background: #f8d6d6 !important;
-}
-.dimanche-row .hour-select {
-    background: #fce4e4 !important;
 }
 
 /* Badge */
@@ -253,7 +267,54 @@ tr:hover td {
     margin-bottom: 12px;
 }
 
-/* Status */
+/* Config section */
+.config-section {
+    margin-top: 20px;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.config-section h3 {
+    font-size: 1rem;
+    margin-bottom: 16px;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.config-grid label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.config-grid input,
+.config-grid textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d9e6;
+    border-radius: 6px;
+    font-family: inherit;
+}
+
+.config-grid textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.config-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
 .status-save {
     font-size: 0.8rem;
     color: #087443;
@@ -261,9 +322,51 @@ tr:hover td {
     margin-left: 8px;
 }
 
+.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Month grid */
+.month-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.month-grid a {
+    background: #f8fafc;
+    border: 1px solid #e9edf2;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    text-decoration: none;
+    color: #1e293b;
+    font-size: 0.85rem;
+    transition: 0.15s;
+}
+
+.month-grid a:hover {
+    background: #1e293b;
+    color: white;
+    border-color: #1e293b;
+}
+
 /* Responsive */
 @media (max-width: 800px) {
     .panel { padding: 12px; }
     .nav-tabs { padding: 8px 10px; gap: 2px; }
     .nav-tabs a { font-size: 0.7rem; padding: 5px 10px; }
+    .config-grid { grid-template-columns: 1fr; }
+}
+
+/* Fix pour les inputs de type number */
+input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }

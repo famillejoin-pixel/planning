@@ -5,15 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planning 2026 - Bilan</title>
     <link rel="stylesheet" href="../css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="app-container">
         <!-- Navigation -->
         <div class="nav-tabs">
             <a href="../index.html">⚙️ Paramètres</a>
-            <a href="bilan.html">📊 Bilan</a>
+            <a href="bilan.html" class="active">📊 Bilan</a>
             <a href="mois.html?mois=janvier">📅 Janv</a>
             <a href="mois.html?mois=fevrier">📅 Fév</a>
             <a href="mois.html?mois=mars">📅 Mar</a>
@@ -21,7 +20,7 @@
             <a href="mois.html?mois=mai">📅 Mai</a>
             <a href="mois.html?mois=juin">📅 Juin</a>
             <a href="mois.html?mois=juillet">📅 Juil</a>
-            <a href="mois.html?mois=aout">📅 Aoû</a>
+            <a href="mois.html?mois=aout">📅 Août</a>
             <a href="mois.html?mois=septembre">📅 Sep</a>
             <a href="mois.html?mois=octobre">📅 Oct</a>
             <a href="mois.html?mois=novembre">📅 Nov</a>
@@ -66,8 +65,117 @@
         </div>
     </div>
 
-    <script src="../js/config.js"></script>
-    <script src="../js/data.js"></script>
-    <script src="../js/bilan.js"></script>
+    <!-- Scripts -->
+    <script src="../js/app.js"></script>
+    <script src="../js/charts.js"></script>
+    <script>
+        // --- LOGIQUE DE LA PAGE BILAN ---
+        
+        function renderBilan() {
+            const { yearTotals, staffTotals, activityTotals, monthPR } = App.calculateYearTotals();
+            
+            // Calculer les totaux par catégorie
+            const voileActs = ['EDV', 'EDS', 'REGATE', 'CP', 'LOCATION'];
+            const reposActs = ['REPOS', 'CONGES'];
+            
+            let totalVoileP = 0, totalVoileR = 0;
+            let totalHorsP = 0, totalHorsR = 0;
+            let totalReposP = 0, totalReposR = 0;
+            
+            MONTHS.forEach(m => {
+                const monthData = App.getMonthData(m);
+                monthData.forEach(row => {
+                    App.config.staff.forEach(name => {
+                        const cell = row.staff[name];
+                        if (cell) {
+                            const p = cell.P || 0;
+                            const r = cell.R || 0;
+                            const activity = (cell.activity || '').toUpperCase();
+                            
+                            if (reposActs.some(a => activity.includes(a))) {
+                                totalReposP += p;
+                                totalReposR += r;
+                            } else if (voileActs.some(a => activity.includes(a))) {
+                                totalVoileP += p;
+                                totalVoileR += r;
+                            } else if (activity !== '') {
+                                totalHorsP += p;
+                                totalHorsR += r;
+                            }
+                        }
+                    });
+                });
+            });
+            
+            // Mettre à jour l'interface
+            document.getElementById('totalVoile').textContent = `${totalVoileP.toFixed(1)}h (P) / ${totalVoileR.toFixed(1)}h (R)`;
+            document.getElementById('totalHorsVoile').textContent = `${totalHorsP.toFixed(1)}h (P) / ${totalHorsR.toFixed(1)}h (R)`;
+            document.getElementById('totalReposConges').textContent = `${totalReposP.toFixed(1)}h (P) / ${totalReposR.toFixed(1)}h (R)`;
+            document.getElementById('totalP').textContent = `${yearTotals.P.toFixed(1)}h (P)`;
+            document.getElementById('totalR').textContent = `${yearTotals.R.toFixed(1)}h (R)`;
+            
+            // Tableau récapitulatif
+            let html = `<table>
+                <thead>
+                    <tr>
+                        <th>Mois</th>`;
+            App.config.staff.forEach(name => {
+                html += `<th>${name}</th>`;
+            });
+            html += `</tr>
+                </thead>
+                <tbody>`;
+            
+            MONTHS.forEach((m, idx) => {
+                const monthData = App.getMonthData(m);
+                html += `<tr><td>${MONTH_LABELS[idx]}</td>`;
+                App.config.staff.forEach(name => {
+                    let sum = 0;
+                    monthData.forEach(row => {
+                        sum += row.staff[name]?.P || 0;
+                    });
+                    html += `<td>${sum.toFixed(1)}</td>`;
+                });
+                html += `</tr>`;
+            });
+            
+            html += `<tr class="total-row">
+                <td>TOTAL</td>`;
+            App.config.staff.forEach(name => {
+                html += `<td>${(staffTotals[name]?.P || 0).toFixed(1)}</td>`;
+            });
+            html += `</tr>
+                </tbody>
+            </table>`;
+            
+            document.getElementById('bilanTableWrap').innerHTML = html;
+            
+            // Mettre à jour les graphiques
+            if (typeof window.renderBilanCharts === 'function') {
+                window.renderBilanCharts(activityTotals, staffTotals, monthPR);
+            }
+            
+            // Mettre à jour la navigation
+            updateNav();
+        }
+        
+        function updateNav() {
+            document.querySelectorAll('.nav-tabs a').forEach(a => {
+                if (a.getAttribute('href') && a.getAttribute('href').includes('bilan')) {
+                    a.classList.add('active');
+                } else {
+                    a.classList.remove('active');
+                }
+            });
+        }
+        
+        // Initialisation
+        App.init().then(() => {
+            renderBilan();
+        });
+        
+        // Exposer la fonction pour app.js
+        window.renderBilan = renderBilan;
+    </script>
 </body>
 </html>
