@@ -6,16 +6,49 @@
     <title>Planning - Mois</title>
     <link rel="stylesheet" href="../css/style.css">
     <style>
-        /* Styles spécifiques pour ce fichier */
-        .hour-select { width: 60px; padding: 4px; font-size: 0.8rem; text-align: center; }
-        .activity-select { width: 100px; padding: 4px; font-size: 0.75rem; }
-        .diff-cell { font-weight: bold; min-width: 35px; display: inline-block; padding: 2px 6px; border-radius: 3px; }
+        /* Styles pour les cellules de moniteur */
+        .staff-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: center;
+            padding: 4px;
+            min-width: 120px;
+        }
+        .staff-cell select {
+            width: 100%;
+            padding: 4px;
+            font-size: 0.8rem;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            background: white;
+        }
+        .hours-row {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .hour-select {
+            width: 50px;
+            padding: 2px 4px;
+            font-size: 0.75rem;
+            text-align: center;
+        }
+        .diff-cell {
+            font-weight: bold;
+            min-width: 30px;
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
         .diff-positive { color: #27ae60; background: rgba(39, 174, 96, 0.1); }
         .diff-negative { color: #e74c3c; background: rgba(231, 76, 60, 0.1); }
         .diff-zero { color: #f39c12; background: rgba(243, 156, 18, 0.1); }
         .dimanche-row td { background: #fdecea; }
         .month-header td { background: #f0f3f5; font-weight: bold; border-top: 2px solid #3498db; }
         .total-row td { background: #e8f4fc; font-weight: bold; border-top: 2px solid #3498db; }
+        table { table-layout: fixed; }
+        th, td { word-wrap: break-word; }
     </style>
 </head>
 <body>
@@ -147,84 +180,39 @@
             });
         }
 
-        // Mettre à jour une cellule spécifique (sans recharger tout le tableau)
+        // Mettre à jour une cellule
         function updateCell(rowIndex, staffName, field, value) {
             if (field === 'activity') {
                 monthData[rowIndex].staff[staffName].activity = value;
             } else {
                 monthData[rowIndex].staff[staffName][field] = parseFloat(value) || 0;
             }
-            
-            // Mettre à jour uniquement la ligne concernée
-            updateRow(rowIndex);
-            updateTotals();
+            buildTable(); // Reconstruire le tableau pour simplifier
         }
 
-        // Mettre à jour une ligne spécifique
-        function updateRow(rowIndex) {
-            const row = monthData[rowIndex];
-            const tr = document.querySelector(`tr[data-rowindex="${rowIndex}"]`);
-            if (!tr) return;
-            
+        // Construire le tableau (version simplifiée sans colspan)
+        function buildTable() {
             const staff = config.staff;
-            let totalP = 0, totalR = 0;
+            const monthIdx = MONTHS.indexOf(currentMonth);
+            const monthLabel = MONTH_LABELS[monthIdx];
             
-            // Mettre à jour chaque cellule de la ligne
-            staff.forEach((name, staffIndex) => {
-                const cell = row.staff[name];
-                const diffVal = getDiff(cell.P, cell.R);
-                let diffClass = 'diff-zero';
-                if (diffVal > 0) diffClass = 'diff-positive';
-                else if (diffVal < 0) diffClass = 'diff-negative';
-                
-                let rColor = '';
-                if (cell.R > cell.P) rColor = '#f8d7da';
-                else if (cell.R < cell.P) rColor = '#d4edda';
-                else rColor = '#fff3cd';
-                
-                // Trouver les cellules de cette ligne pour ce moniteur
-                const cells = tr.querySelectorAll('td');
-                // Les 3 premières cellules sont Date, Jour, Sem. -> index 3 + staffIndex*4
-                const baseIndex = 3 + staffIndex * 4;
-                
-                if (cells[baseIndex]) cells[baseIndex].innerHTML = `
-                    <select class="activity-select" onchange="updateCell(${rowIndex}, '${name}', 'activity', this.value)">
-                        ${config.activities.map(a => 
-                            `<option value="${a}" ${cell.activity === a ? 'selected' : ''}>${a}</option>`
-                        ).join('')}
-                    </select>`;
-                
-                if (cells[baseIndex + 1]) cells[baseIndex + 1].innerHTML = `
-                    <select class="hour-select" onchange="updateCell(${rowIndex}, '${name}', 'P', this.value)">
-                        ${generateHourOptions(cell.P || 0)}
-                    </select>`;
-                
-                if (cells[baseIndex + 2]) cells[baseIndex + 2].innerHTML = `
-                    <select class="hour-select" onchange="updateCell(${rowIndex}, '${name}', 'R', this.value)" style="background:${rColor};">
-                        ${generateHourOptions(cell.R || 0)}
-                    </select>`;
-                
-                if (cells[baseIndex + 3]) {
-                    cells[baseIndex + 3].className = `diff-cell ${diffClass}`;
-                    cells[baseIndex + 3].textContent = diffVal.toFixed(1);
-                }
-                
-                totalP += cell.P || 0;
-                totalR += cell.R || 0;
-            });
-        }
-
-        // Mettre à jour les totaux
-        function updateTotals() {
+            document.getElementById('moisTitle').textContent = `📅 ${monthLabel} ${config.year}`;
+            document.getElementById('moisStaffBadge').textContent = `Staff: ${staff.length} moniteurs`;
+            
+            // Générer les données si vide
+            if (monthData.length === 0) {
+                monthData = generateMonthData(monthIdx, config.year, staff);
+            }
+            
+            // Calculer les totaux
             let totalP = 0, totalR = 0, totalDiff = 0;
             const staffTotals = {};
-            
-            config.staff.forEach(name => {
+            staff.forEach(name => {
                 staffTotals[name] = { P: 0, R: 0, Diff: 0 };
             });
             
             monthData.forEach(row => {
-                config.staff.forEach(name => {
+                staff.forEach(name => {
                     const cell = row.staff[name];
                     const p = cell.P || 0;
                     const r = cell.R || 0;
@@ -240,76 +228,25 @@
                 });
             });
             
-            // Mettre à jour l'affichage des totaux
+            // Mettre à jour les totaux en haut
             document.getElementById('totalP').textContent = `${totalP.toFixed(1)}h`;
             document.getElementById('totalR').textContent = `${totalR.toFixed(1)}h`;
             document.getElementById('totalDiff').textContent = `${totalDiff.toFixed(1)}h`;
             
-            // Mettre à jour la ligne des totaux dans le tableau
-            updateTotalsRow(staffTotals);
-        }
-
-        // Mettre à jour la ligne des totaux dans le tableau
-        function updateTotalsRow(staffTotals) {
-            const totalRow = document.querySelector('.total-row');
-            if (!totalRow) return;
-            
-            const cells = totalRow.querySelectorAll('td');
-            let colIndex = 3; // Commence après Date, Jour, Sem.
-            
-            config.staff.forEach(name => {
-                const t = staffTotals[name];
-                const diffClass = t.Diff > 0 ? 'diff-positive' : t.Diff < 0 ? 'diff-negative' : 'diff-zero';
-                
-                if (cells[colIndex]) cells[colIndex].textContent = ''; // Activité (vide)
-                if (cells[colIndex + 1]) cells[colIndex + 1].textContent = t.P.toFixed(1);
-                if (cells[colIndex + 2]) cells[colIndex + 2].textContent = t.R.toFixed(1);
-                if (cells[colIndex + 3]) {
-                    cells[colIndex + 3].className = `diff-cell ${diffClass}`;
-                    cells[colIndex + 3].textContent = t.Diff.toFixed(1);
-                }
-                colIndex += 4;
-            });
-        }
-
-        // Construire le tableau
-        function buildTable() {
-            const staff = config.staff;
-            const monthIdx = MONTHS.indexOf(currentMonth);
-            const monthLabel = MONTH_LABELS[monthIdx];
-            
-            document.getElementById('moisTitle').textContent = `📅 ${monthLabel} ${config.year}`;
-            document.getElementById('moisStaffBadge').textContent = `Staff: ${staff.length} moniteurs`;
-            
-            // Générer les données si vide
-            if (monthData.length === 0) {
-                monthData = generateMonthData(monthIdx, config.year, staff);
-            }
-            
-            // Calculer les totaux initiaux
-            updateTotals();
-            
-            // Construire le HTML du tableau
+            // Construire le HTML du tableau (SANS colspan/rowspan)
             let html = `<table>
                 <thead>
                     <tr>
-                        <th rowspan="2">Date</th>
-                        <th rowspan="2">Jour</th>
-                        <th rowspan="2">Sem.</th>`;
+                        <th>Date</th>
+                        <th>Jour</th>
+                        <th>Sem.</th>`;
             
-            // En-tête pour chaque moniteur
+            // Une colonne par moniteur (avec en-tête simple)
             staff.forEach(name => {
-                html += `<th colspan="4">${name}</th>`;
+                html += `<th>${name}</th>`;
             });
             
-            html += `<th rowspan="2" style="min-width:28px;">✕</th></tr>
-                    <tr>`;
-            
-            // Deuxième ligne d'en-tête
-            staff.forEach(name => {
-                html += `<th>Activité</th><th>P</th><th>R</th><th>Diff</th>`;
-            });
-            html += `</tr>
+            html += `<th style="min-width:28px;">✕</th></tr>
                 </thead>
                 <tbody>`;
             
@@ -325,7 +262,7 @@
                     <td>${row.day || ''}</td>
                     <td>${row.week || ''}</td>`;
                 
-                // Cellules pour chaque moniteur
+                // Une cellule par moniteur (avec Activité, P, R, Diff dedans)
                 staff.forEach(name => {
                     const cell = row.staff[name];
                     const diffVal = getDiff(cell.P, cell.R);
@@ -342,25 +279,26 @@
                     const pOptions = generateHourOptions(cell.P || 0);
                     const rOptions = generateHourOptions(cell.R || 0);
                     
-                    html += `
-                        <td>
+                    // Cellule unique avec tout dedans
+                    html += `<td>
+                        <div class="staff-cell">
                             <select class="activity-select" onchange="updateCell(${rowIndex}, '${name}', 'activity', this.value)">
                                 ${config.activities.map(a => 
                                     `<option value="${a}" ${cell.activity === a ? 'selected' : ''}>${a}</option>`
                                 ).join('')}
                             </select>
-                        </td>
-                        <td>
-                            <select class="hour-select" onchange="updateCell(${rowIndex}, '${name}', 'P', this.value)">
-                                ${pOptions}
-                            </select>
-                        </td>
-                        <td>
-                            <select class="hour-select" onchange="updateCell(${rowIndex}, '${name}', 'R', this.value)" style="background:${rColor};">
-                                ${rOptions}
-                            </select>
-                        </td>
-                        <td class="${diffClass}">${diffVal.toFixed(1)}</td>`;
+                            <div class="hours-row">
+                                <select class="hour-select" onchange="updateCell(${rowIndex}, '${name}', 'P', this.value)">
+                                    ${pOptions}
+                                </select>
+                                <span style="font-weight:300;color:#999;">/</span>
+                                <select class="hour-select" onchange="updateCell(${rowIndex}, '${name}', 'R', this.value)" style="background:${rColor};">
+                                    ${rOptions}
+                                </select>
+                                <span class="diff-cell ${diffClass}">${diffVal.toFixed(1)}</span>
+                            </div>
+                        </div>
+                    </td>`;
                 });
                 
                 html += `<td>
@@ -372,22 +310,22 @@
             html += `<tr class="total-row">
                 <td colspan="3">Total mois</td>`;
             staff.forEach(name => {
-                const t = { P: 0, R: 0, Diff: 0 }; // Sera mis à jour par updateTotalsRow
-                html += `<td></td><td>${t.P.toFixed(1)}</td><td>${t.R.toFixed(1)}</td><td class="diff-zero">${t.Diff.toFixed(1)}</td>`;
+                const t = staffTotals[name];
+                const diffClass = t.Diff > 0 ? 'diff-positive' : t.Diff < 0 ? 'diff-negative' : 'diff-zero';
+                html += `<td>${t.P.toFixed(1)} / ${t.R.toFixed(1)} / <span class="${diffClass}">${t.Diff.toFixed(1)}</span></td>`;
             });
             html += `<td></td></tr>
                 </tbody>
             </table>`;
             
             document.getElementById('moisTableWrap').innerHTML = html;
-            updateTotals(); // Mettre à jour les totaux après construction
         }
 
         // Supprimer une ligne
         function deleteRow(rowIndex) {
             if (confirm('⚠️ Supprimer la ligne du ' + monthData[rowIndex].date + ' ?')) {
                 monthData.splice(rowIndex, 1);
-                buildTable(); // Reconstruire tout le tableau après suppression
+                buildTable();
             }
         }
 
