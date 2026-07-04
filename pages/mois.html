@@ -61,6 +61,17 @@
         let config = PlanningApp.loadConfig();
         let data = PlanningApp.loadData(config);
 
+        // Générer les options pour les heures (0 à 12 par pas de 0.5)
+        function generateHourOptions(selectedValue) {
+            let options = '';
+            for (let h = 0; h <= 12; h += 0.5) {
+                const value = h.toFixed(1);
+                const display = h % 1 === 0 ? h.toFixed(0) : h.toFixed(1); // Affiche 2 au lieu de 2.0
+                options += `<option value="${value}" ${selectedValue === value ? 'selected' : ''}>${display}</option>`;
+            }
+            return options;
+        }
+
         // Mettre à jour la navigation
         function updateNav() {
             document.querySelectorAll('.nav-tabs a').forEach(a => {
@@ -147,6 +158,10 @@
                     else if (cell.R < cell.P) rColor = '#d4edda';
                     else rColor = '#fff3cd';
                     
+                    // Options pour P et R (0 à 12 par pas de 0.5)
+                    const pOptions = generateHourOptions(cell.P || 0);
+                    const rOptions = generateHourOptions(cell.R || 0);
+                    
                     html += `<td>
                         <div class="staff-activity-cell">
                             <select class="activity-select" data-row="${rowIndex}" data-staff="${name}" 
@@ -156,14 +171,17 @@
                                 ).join('')}
                             </select>
                             <div class="hours-row">
-                                <input type="number" class="hour-input p-input" data-row="${rowIndex}" data-staff="${name}" data-field="P"
-                                       value="${cell.P || 0}" step="0.5" min="0" max="12" 
-                                       onchange="updateHour(${rowIndex}, '${name}', 'P', this.value)">
+                                <select class="hour-input p-input" data-row="${rowIndex}" data-staff="${name}" data-field="P"
+                                        onchange="updateHour(${rowIndex}, '${name}', 'P', this.value)"
+                                        style="background:white;">
+                                    ${pOptions}
+                                </select>
                                 <span style="font-weight:300;color:#999;">/</span>
-                                <input type="number" class="hour-input r-input" data-row="${rowIndex}" data-staff="${name}" data-field="R"
-                                       value="${cell.R || 0}" step="0.5" min="0" max="12"
-                                       style="background:${rColor};"
-                                       onchange="updateHour(${rowIndex}, '${name}', 'R', this.value)">
+                                <select class="hour-input r-input" data-row="${rowIndex}" data-staff="${name}" data-field="R"
+                                        onchange="updateHour(${rowIndex}, '${name}', 'R', this.value)"
+                                        style="background:${rColor};">
+                                    ${rOptions}
+                                </select>
                                 <span class="diff-cell ${diffClass}">${diffVal.toFixed(1)}</span>
                             </div>
                         </div>
