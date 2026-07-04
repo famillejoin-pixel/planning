@@ -67,12 +67,25 @@
 
     <!-- Scripts -->
     <script src="../js/app.js"></script>
-    <script src="../js/charts.js"></script>
     <script>
-        // --- LOGIQUE DE LA PAGE BILAN ---
-        
+        // Charger la configuration et les données
+        let config = PlanningApp.loadConfig();
+        let data = PlanningApp.loadData(config);
+
+        // Mettre à jour la navigation
+        function updateNav() {
+            document.querySelectorAll('.nav-tabs a').forEach(a => {
+                if (a.getAttribute('href') && a.getAttribute('href').includes('bilan')) {
+                    a.classList.add('active');
+                } else {
+                    a.classList.remove('active');
+                }
+            });
+        }
+
+        // Rendre le bilan
         function renderBilan() {
-            const { yearTotals, staffTotals, activityTotals, monthPR } = App.calculateYearTotals();
+            const { yearTotals, staffTotals, activityTotals, monthPR } = PlanningApp.calculateYearTotals(data, config.staff, config.activities);
             
             // Calculer les totaux par catégorie
             const voileActs = ['EDV', 'EDS', 'REGATE', 'CP', 'LOCATION'];
@@ -82,10 +95,10 @@
             let totalHorsP = 0, totalHorsR = 0;
             let totalReposP = 0, totalReposR = 0;
             
-            MONTHS.forEach(m => {
-                const monthData = App.getMonthData(m);
+            PlanningApp.MONTHS.forEach(m => {
+                const monthData = data.months[m] || [];
                 monthData.forEach(row => {
-                    App.config.staff.forEach(name => {
+                    config.staff.forEach(name => {
                         const cell = row.staff[name];
                         if (cell) {
                             const p = cell.P || 0;
@@ -119,17 +132,17 @@
                 <thead>
                     <tr>
                         <th>Mois</th>`;
-            App.config.staff.forEach(name => {
+            config.staff.forEach(name => {
                 html += `<th>${name}</th>`;
             });
             html += `</tr>
                 </thead>
                 <tbody>`;
             
-            MONTHS.forEach((m, idx) => {
-                const monthData = App.getMonthData(m);
-                html += `<tr><td>${MONTH_LABELS[idx]}</td>`;
-                App.config.staff.forEach(name => {
+            PlanningApp.MONTHS.forEach((m, idx) => {
+                const monthData = data.months[m] || [];
+                html += `<tr><td>${PlanningApp.MONTH_LABELS[idx]}</td>`;
+                config.staff.forEach(name => {
                     let sum = 0;
                     monthData.forEach(row => {
                         sum += row.staff[name]?.P || 0;
@@ -141,7 +154,7 @@
             
             html += `<tr class="total-row">
                 <td>TOTAL</td>`;
-            App.config.staff.forEach(name => {
+            config.staff.forEach(name => {
                 html += `<td>${(staffTotals[name]?.P || 0).toFixed(1)}</td>`;
             });
             html += `</tr>
@@ -151,31 +164,120 @@
             document.getElementById('bilanTableWrap').innerHTML = html;
             
             // Mettre à jour les graphiques
-            if (typeof window.renderBilanCharts === 'function') {
-                window.renderBilanCharts(activityTotals, staffTotals, monthPR);
-            }
-            
-            // Mettre à jour la navigation
+            renderCharts(activityTotals, staffTotals, monthPR);
             updateNav();
         }
-        
-        function updateNav() {
-            document.querySelectorAll('.nav-tabs a').forEach(a => {
-                if (a.getAttribute('href') && a.getAttribute('href').includes('bilan')) {
-                    a.classList.add('active');
-                } else {
-                    a.classList.remove('active');
-                }
-            });
+
+        // Rendre les graphiques
+        function renderCharts(activityTotals, staffTotals, monthPR) {
+            // Détruire les graphiques existants
+            if (window._charts) {
+                Object.values(window._charts).forEach(c => {
+                    try { c.destroy(); } catch(e) {}
+                });
+            }
+            window._charts = {};
+            
+            const colors = [
+                '#3b82f6', '#8b5cf6', '#06b6d4', '#22c55e', '#eab308', 
+                '#f97316', '#ef4444', '#ec4899', '#14b8a6', '#6366f1', 
+                '#84cc16', '#f43f5e', '#0ea5e9', '#d946ef'
+            ];
+            
+            // 1. Répartition des activités
+            const ctx1 = document.getElementById('activitesChart');
+            if (ctx1) {
+                const acts = Object.keys(activityTotals).filter(a => activityTotals[a] > 0);
+                const actValues = acts.map(a => activityTotals[a]);
+                
+                try {
+                    window._charts.activites = new Chart(ctx1, {
+                        type: 'bar',
+                        data: {
+                            labels: acts,
+                            datasets: [{
+                                label: 'Heures prévues (P)',
+                                data: actValues,
+                                backgroundColor: colors.slice(0, acts.length),
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                } catch(e) { console.error('Erreur graphique activités:', e); }
+            }
+            
+            // 2. P/R par moniteur
+            const ctx2 = document.getElementById('staffPRChart');
+            if (ctx2) {
+                try {
+                    window._charts.staffPR = new Chart(ctx2, {
+                        type: 'bar',
+                        data: {
+                            labels: config.staff,
+                            datasets: [
+                                {
+                                    label: 'Prévu (P)',
+                                    data: config.staff.map(n => staffTotals[n]?.P || 0),
+                                    backgroundColor: '#3b82f6',
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Réalisé (R)',
+                                    data: config.staff.map(n => staffTotals[n]?.R || 0),
+                                    backgroundColor: '#f97316',
+                                    borderRadius: 4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'top' } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                } catch(e) { console.error('Erreur graphique staff:', e); }
+            }
+            
+            // 3. Évolution mensuelle
+            const ctx3 = document.getElementById('monthlyChart');
+            if (ctx3) {
+                try {
+                    window._charts.monthly = new Chart(ctx3, {
+                        type: 'bar',
+                        data: {
+                            labels: PlanningApp.MONTH_LABELS,
+                            datasets: [
+                                {
+                                    label: 'Prévu (P)',
+                                    data: PlanningApp.MONTHS.map(m => monthPR[m]?.P || 0),
+                                    backgroundColor: '#3b82f6',
+                                    borderRadius: 4
+                                },
+                                {
+                                    label: 'Réalisé (R)',
+                                    data: PlanningApp.MONTHS.map(m => monthPR[m]?.R || 0),
+                                    backgroundColor: '#f97316',
+                                    borderRadius: 4
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'top' } },
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                } catch(e) { console.error('Erreur graphique mensuel:', e); }
+            }
         }
-        
+
         // Initialisation
-        App.init().then(() => {
-            renderBilan();
-        });
-        
-        // Exposer la fonction pour app.js
-        window.renderBilan = renderBilan;
+        renderBilan();
     </script>
 </body>
 </html>

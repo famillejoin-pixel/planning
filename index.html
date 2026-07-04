@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning 2026 - Paramètres</title>
+    <title>Planning 2026 - Accueil</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -29,7 +29,7 @@
         <!-- Contenu -->
         <div class="panel">
             <div class="panel-header">
-                <h2>⚙️ Paramètres généraux</h2>
+                <h2>⚙️ Paramètres du Planning</h2>
             </div>
 
             <div class="config-section">
@@ -44,7 +44,8 @@
                     </div>
                     <div class="full-width">
                         <label>Moniteurs (séparés par des virgules)</label>
-                        <input type="text" id="staffInput" value="Romain, Thibau, James, Swann, Soen, Cenzo, Marine, Léa, Erwan, Marin, Marie, Nils, Florian, Iris, Mael">
+                        <input type="text" id="staffInput" 
+                               value="Romain, Thibau, James, Swann, Soen, Cenzo, Marine, Léa, Erwan, Marin, Marie, Nils, Florian, Iris, Mael">
                     </div>
                     <div class="full-width">
                         <label>Activités (une par ligne)</label>
@@ -74,9 +75,9 @@ SCOLAIRE+CP</textarea>
                     </div>
                 </div>
                 <div class="config-actions">
-                    <button class="btn" id="saveConfigBtn">💾 Enregistrer</button>
-                    <button class="btn btn-outline" id="resetConfigBtn">🔄 Réinitialiser</button>
-                    <button class="btn btn-outline btn-danger" id="resetDataBtn">🗑️ Effacer les données</button>
+                    <button class="btn" onclick="saveConfig()">💾 Enregistrer</button>
+                    <button class="btn btn-outline" onclick="resetConfig()">🔄 Réinitialiser</button>
+                    <button class="btn btn-outline btn-danger" onclick="resetAllData()">🗑️ Effacer les données</button>
                     <span class="status-save" id="saveStatus">✅ Sauvegarde automatique activée</span>
                 </div>
             </div>
@@ -91,95 +92,81 @@ SCOLAIRE+CP</textarea>
     <!-- Scripts -->
     <script src="js/app.js"></script>
     <script>
-        // --- LOGIQUE DE LA PAGE INDEX ---
-        
+        // Charger la configuration
+        let config = PlanningApp.loadConfig();
+        let data = PlanningApp.loadData(config);
+
+        // Remplir le formulaire
+        function loadConfigToForm() {
+            document.getElementById('anneeInput').value = config.year || 2026;
+            document.getElementById('clubInput').value = config.club || 'ASPTT Voile';
+            document.getElementById('staffInput').value = config.staff?.join(', ') || '';
+            document.getElementById('activitesInput').value = config.activities?.join('\n') || '';
+        }
+
+        // Sauvegarder la configuration
+        function saveConfig() {
+            config.year = parseInt(document.getElementById('anneeInput').value) || 2026;
+            config.club = document.getElementById('clubInput').value || 'ASPTT Voile';
+            config.staff = document.getElementById('staffInput').value
+                .split(',')
+                .map(s => s.trim())
+                .filter(s => s);
+            config.activities = document.getElementById('activitesInput').value
+                .split('\n')
+                .map(s => s.trim())
+                .filter(s => s);
+
+            PlanningApp.saveConfig(config);
+            
+            // Recharger les données pour la nouvelle année/staff
+            data = PlanningApp.generateYearData(config);
+            PlanningApp.saveData(data);
+            
+            document.getElementById('saveStatus').textContent = '✅ Paramètres enregistrés';
+            setTimeout(() => {
+                document.getElementById('saveStatus').textContent = '✅ Sauvegarde automatique activée';
+            }, 2000);
+            
+            alert('Paramètres enregistrés !');
+        }
+
+        // Réinitialiser la configuration
+        function resetConfig() {
+            if (confirm('Réinitialiser les paramètres ?')) {
+                config = { ...PlanningApp.DEFAULT_CONFIG };
+                PlanningApp.saveConfig(config);
+                loadConfigToForm();
+                alert('Paramètres réinitialisés.');
+            }
+        }
+
+        // Réinitialiser toutes les données
+        function resetAllData() {
+            if (confirm('Effacer TOUTES les données saisies ?')) {
+                data = PlanningApp.generateYearData(config);
+                PlanningApp.saveData(data);
+                alert('Données effacées.');
+                location.reload();
+            }
+        }
+
         // Générer les liens vers les mois
         function generateMonthLinks() {
             const grid = document.getElementById('monthGrid');
             grid.innerHTML = '';
             
-            MONTHS.forEach((key, i) => {
+            PlanningApp.MONTHS.forEach((key, i) => {
                 const a = document.createElement('a');
                 a.href = `pages/mois.html?mois=${key}`;
-                a.textContent = MONTH_LABELS[i];
+                a.textContent = PlanningApp.MONTH_LABELS[i];
                 grid.appendChild(a);
             });
         }
-        
-        // Charger la configuration dans le formulaire
-        function loadConfigToForm() {
-            document.getElementById('anneeInput').value = App.config.year || 2026;
-            document.getElementById('clubInput').value = App.config.club || 'ASPTT Voile';
-            document.getElementById('staffInput').value = App.config.staff?.join(', ') || '';
-            document.getElementById('activitesInput').value = App.config.activities?.join('\n') || '';
-        }
-        
-        // Sauvegarder la configuration depuis le formulaire
-        function saveConfigFromForm() {
-            App.config.year = parseInt(document.getElementById('anneeInput').value) || 2026;
-            App.config.club = document.getElementById('clubInput').value || 'ASPTT Voile';
-            App.config.staff = document.getElementById('staffInput').value
-                .split(',')
-                .map(s => s.trim())
-                .filter(s => s);
-            App.config.activities = document.getElementById('activitesInput').value
-                .split('\n')
-                .map(s => s.trim())
-                .filter(s => s);
-            
-            App.saveConfig();
-            
-            // Recharger les données pour le nouveau staff/année
-            App.data = App.generateYearData();
-            App.saveData(false);
-            
-            const status = document.getElementById('saveStatus');
-            status.textContent = '✅ Paramètres enregistrés';
-            setTimeout(() => {
-                status.textContent = '✅ Sauvegarde automatique activée';
-            }, 2000);
-            
-            alert('Paramètres enregistrés !');
-        }
-        
-        // Réinitialiser la configuration
-        function resetConfig() {
-            if (confirm('Réinitialiser les paramètres ?')) {
-                App.config = { ...App.config, ...{
-                    year: 2026,
-                    club: 'ASPTT Voile',
-                    staff: ['Romain', 'Thibau', 'James', 'Swann', 'Soen', 'Cenzo', 'Marine', 'Léa', 'Erwan', 'Marin', 'Marie', 'Nils', 'Florian', 'Iris', 'Mael'],
-                    activities: [
-                        'ACCUEIL', 'EDV', 'EDS', 'ATELIER', 'GROUPE', 'CP', 'LOCATION', 'REPOS', 'REUNION', 
-                        'SCOLAIRE', 'AUTRE', 'RTQ', 'RTQ+EDS', 'EDV+CP', 'ATELIER+CP', 'GROUPE+CP', 
-                        'ACCUEIL+CP', 'EDV+GP', 'EDS+AT', 'ATELIER+GP', 'GROUPE+AT', 'CONGES', 'SCOLAIRE+CP'
-                    ]
-                }};
-                App.saveConfig();
-                loadConfigToForm();
-                alert('Paramètres réinitialisés.');
-            }
-        }
-        
-        // Réinitialiser toutes les données
-        function resetAllData() {
-            if (confirm('Effacer TOUTES les données saisies ?')) {
-                App.resetAllData();
-                alert('Données effacées.');
-                location.reload();
-            }
-        }
-        
-        // Attacher les événements
-        document.getElementById('saveConfigBtn').addEventListener('click', saveConfigFromForm);
-        document.getElementById('resetConfigBtn').addEventListener('click', resetConfig);
-        document.getElementById('resetDataBtn').addEventListener('click', resetAllData);
-        
+
         // Initialisation
-        App.init().then(() => {
-            loadConfigToForm();
-            generateMonthLinks();
-        });
+        loadConfigToForm();
+        generateMonthLinks();
     </script>
 </body>
 </html>

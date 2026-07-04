@@ -32,7 +32,6 @@
                 <h2 id="moisTitle">📅 Janvier 2026</h2>
                 <div>
                     <span class="badge" id="moisStaffBadge">Staff: -</span>
-                    <button class="btn btn-sm btn-outline" id="addStaffActivityBtn">+ Activité</button>
                 </div>
             </div>
             
@@ -40,13 +39,13 @@
             
             <div class="weekly-summary">
                 <h3>📅 Bilan hebdomadaire par moniteur</h3>
-                <p>Heures prévues / réalisées / écart. Ce bilan se met à jour automatiquement.</p>
+                <p>Heures prévues / réalisées / écart.</p>
                 <div class="table-wrap" id="weeklySummaryWrap"></div>
             </div>
             
             <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-                <button class="btn btn-sm" id="saveMonthBtn">💾 Sauvegarder</button>
-                <button class="btn btn-sm btn-outline" id="resetMonthBtn">🔄 Réinitialiser le mois</button>
+                <button class="btn btn-sm" onclick="saveMonth()">💾 Sauvegarder</button>
+                <button class="btn btn-sm btn-outline" onclick="resetMonth()">🔄 Réinitialiser le mois</button>
             </div>
         </div>
     </div>
@@ -54,60 +53,57 @@
     <!-- Scripts -->
     <script src="../js/app.js"></script>
     <script>
-        // --- LOGIQUE DE LA PAGE MOIS ---
+        // Récupérer le mois depuis l'URL
+        const params = new URLSearchParams(window.location.search);
+        let currentMonth = params.get('mois') || 'janvier';
         
-        // Rendre le mois
-        function renderMonth(monthKey) {
-            App.currentMonth = monthKey;
-            const monthIdx = MONTHS.indexOf(monthKey);
-            if (monthIdx === -1) return;
-            
-            const monthLabel = MONTH_LABELS[monthIdx];
-            const year = App.config.year;
-            const staff = App.config.staff;
-            
-            document.getElementById('moisTitle').textContent = `📅 ${monthLabel} ${year}`;
-            document.getElementById('moisStaffBadge').textContent = `Staff: ${staff.join(', ')}`;
-            
-            // Récupérer les données
-            let data = App.getMonthData(monthKey);
-            
-            // Si les données sont vides, les générer
-            if (!data || data.length === 0) {
-                data = App.generateMonthData(monthIdx);
-                App.data.months[monthKey] = data;
-                App.saveData();
-            }
-            
-            buildTable(data, staff, monthKey);
-            buildWeeklySummary(data, staff);
-            updateNav();
-        }
-        
+        // Charger la configuration et les données
+        let config = PlanningApp.loadConfig();
+        let data = PlanningApp.loadData(config);
+
         // Mettre à jour la navigation
         function updateNav() {
             document.querySelectorAll('.nav-tabs a').forEach(a => {
                 const href = a.getAttribute('href');
-                if (href && href.includes(`mois=${App.currentMonth}`)) {
+                if (href && href.includes(`mois=${currentMonth}`)) {
                     a.classList.add('active');
                 } else {
                     a.classList.remove('active');
                 }
             });
         }
-        
+
+        // Rendre le mois
+        function renderMonth() {
+            const monthIdx = PlanningApp.MONTHS.indexOf(currentMonth);
+            if (monthIdx === -1) return;
+            
+            const monthLabel = PlanningApp.MONTH_LABELS[monthIdx];
+            const year = config.year;
+            const staff = config.staff;
+            
+            document.getElementById('moisTitle').textContent = `📅 ${monthLabel} ${year}`;
+            document.getElementById('moisStaffBadge').textContent = `Staff: ${staff.join(', ')}`;
+            
+            // Récupérer les données du mois
+            let monthData = data.months[currentMonth];
+            if (!monthData || monthData.length === 0) {
+                monthData = PlanningApp.generateMonthData(monthIdx, year, staff, config.activities);
+                data.months[currentMonth] = monthData;
+                PlanningApp.saveData(data);
+            }
+            
+            buildTable(monthData, staff);
+            buildWeeklySummary(monthData, staff);
+            updateNav();
+        }
+
         // Construire le tableau
-        function buildTable(data, staff, monthKey) {
+        function buildTable(monthData, staff) {
             if (!staff || staff.length === 0) {
                 document.getElementById('moisTableWrap').innerHTML = 
                     '<p style="color:red;padding:20px;">Erreur: Aucun moniteur configuré. Veuillez vérifier les paramètres.</p>';
                 return;
-            }
-            
-            // Options pour les heures (0 à 12 par pas de 0.5)
-            let hourOptions = '';
-            for (let h = 0; h <= 12; h += 0.5) {
-                hourOptions += `<option value="${h}">${h.toFixed(1)}</option>`;
             }
             
             let html = `<table>
@@ -127,7 +123,7 @@
                 <tbody>`;
             
             // Lignes pour chaque jour
-            data.forEach((row, rowIndex) => {
+            monthData.forEach((row, rowIndex) => {
                 const dateObj = new Date(row.date + 'T00:00:00');
                 const dateStr = dateObj.toLocaleDateString('fr-FR');
                 const isDimanche = row.day === 'dimanche';
@@ -141,7 +137,7 @@
                 // Cellules pour chaque moniteur
                 staff.forEach(name => {
                     const cell = row.staff[name] || { activity: 'ACCUEIL', P: 0, R: 0 };
-                    const diffVal = (cell.P || 0) - (cell.R || 0);
+                    const diffVal = PlanningApp.getDiff(cell);
                     let diffClass = 'diff-zero';
                     if (diffVal > 0) diffClass = 'diff-positive';
                     else if (diffVal < 0) diffClass = 'diff-negative';
@@ -153,18 +149,22 @@
                     
                     html += `<td>
                         <div class="staff-activity-cell">
-                            <select class="activity-select" data-row="${rowIndex}" data-staff="${name}" style="width:100%;max-width:75px;">
-                                ${App.config.activities.map(a => 
+                            <select class="activity-select" data-row="${rowIndex}" data-staff="${name}" 
+                                    onchange="updateActivity(${rowIndex}, '${name}', this.value)">
+                                ${config.activities.map(a => 
                                     `<option value="${a}" ${cell.activity === a ? 'selected' : ''}>${a}</option>`
                                 ).join('')}
                             </select>
                             <div class="hours-row">
-                                <input type="number" class="hour-input p-input" data-row="${rowIndex}" data-staff="${name}" data-field="P" 
-                                       value="${cell.P || 0}" step="0.5" min="0" max="12" style="width:48px;text-align:center;">
+                                <input type="number" class="hour-input p-input" data-row="${rowIndex}" data-staff="${name}" data-field="P"
+                                       value="${cell.P || 0}" step="0.5" min="0" max="12" 
+                                       onchange="updateHour(${rowIndex}, '${name}', 'P', this.value)">
                                 <span style="font-weight:300;color:#999;">/</span>
-                                <input type="number" class="hour-input r-input" data-row="${rowIndex}" data-staff="${name}" data-field="R" 
-                                       value="${cell.R || 0}" step="0.5" min="0" max="12" style="width:48px;text-align:center;background:${rColor};">
-                                <span class="diff-cell ${diffClass}" data-row="${rowIndex}" data-staff="${name}">${diffVal.toFixed(1)}</span>
+                                <input type="number" class="hour-input r-input" data-row="${rowIndex}" data-staff="${name}" data-field="R"
+                                       value="${cell.R || 0}" step="0.5" min="0" max="12"
+                                       style="background:${rColor};"
+                                       onchange="updateHour(${rowIndex}, '${name}', 'R', this.value)">
+                                <span class="diff-cell ${diffClass}">${diffVal.toFixed(1)}</span>
                             </div>
                         </div>
                     </td>`;
@@ -172,12 +172,12 @@
                 
                 html += `<td>
                     <button class="delete-row-btn" style="background:none;border:none;color:#b91c1c;cursor:pointer;font-size:0.9rem;" 
-                            data-row="${rowIndex}">✕</button>
+                            onclick="deleteRow(${rowIndex})">✕</button>
                 </td></tr>`;
             });
             
             // Ligne des totaux
-            const { totals, staffTotals } = App.calculateMonthTotals(monthKey);
+            const { totals, staffTotals } = PlanningApp.calculateMonthTotals(data, currentMonth, staff);
             html += `<tr class="month-header">
                 <td colspan="3">Total mois</td>`;
             staff.forEach(name => {
@@ -190,10 +190,10 @@
             
             document.getElementById('moisTableWrap').innerHTML = html;
         }
-        
+
         // Construire le résumé hebdomadaire
-        function buildWeeklySummary(data, staff) {
-            const weeks = [...new Set(data.map(r => r.week))].sort((a,b) => a-b);
+        function buildWeeklySummary(monthData, staff) {
+            const weeks = [...new Set(monthData.map(r => r.week))].sort((a,b) => a-b);
             let summary = '<table><thead><tr><th>Moniteur</th>';
             
             weeks.forEach(w => {
@@ -207,7 +207,7 @@
                 
                 weeks.forEach(w => {
                     let p = 0, r = 0;
-                    data.filter(row => row.week === w).forEach(row => {
+                    monthData.filter(row => row.week === w).forEach(row => {
                         const cell = row.staff?.[name];
                         p += cell?.P || 0;
                         r += cell?.R || 0;
@@ -226,47 +226,48 @@
             summary += '</tbody></table>';
             document.getElementById('weeklySummaryWrap').innerHTML = summary;
         }
-        
-        // Ajouter une activité
-        function addActivity() {
-            const newAct = prompt('Nouvelle activité à ajouter :');
-            if (newAct && newAct.trim() !== '') {
-                const act = newAct.trim().toUpperCase();
-                if (!App.config.activities.includes(act)) {
-                    App.config.activities.push(act);
-                    App.saveConfig();
-                    renderMonth(App.currentMonth);
-                } else {
-                    alert('Cette activité existe déjà.');
-                }
+
+        // Mettre à jour une activité
+        function updateActivity(rowIndex, staffName, activity) {
+            PlanningApp.updateCell(data, currentMonth, rowIndex, staffName, 'activity', activity);
+            renderMonth();
+        }
+
+        // Mettre à jour une heure
+        function updateHour(rowIndex, staffName, field, value) {
+            const numericValue = parseFloat(value) || 0;
+            PlanningApp.updateCell(data, currentMonth, rowIndex, staffName, field, numericValue);
+            renderMonth();
+        }
+
+        // Supprimer une ligne
+        function deleteRow(rowIndex) {
+            if (confirm(`Supprimer la ligne du ${data.months[currentMonth][rowIndex]?.date || ''} ?`)) {
+                data.months[currentMonth].splice(rowIndex, 1);
+                PlanningApp.saveData(data);
+                renderMonth();
             }
         }
-        
-        // Boutons
-        document.getElementById('saveMonthBtn')?.addEventListener('click', () => {
-            App.saveData(false);
+
+        // Sauvegarder le mois
+        function saveMonth() {
+            PlanningApp.saveData(data);
             alert('Mois sauvegardé !');
-        });
-        
-        document.getElementById('resetMonthBtn')?.addEventListener('click', () => {
-            if (confirm(`Réinitialiser le mois ${MONTH_LABELS[MONTHS.indexOf(App.currentMonth)]} ?`)) {
-                App.resetMonth(App.currentMonth);
-                renderMonth(App.currentMonth);
+        }
+
+        // Réinitialiser le mois
+        function resetMonth() {
+            if (confirm(`Réinitialiser le mois ${PlanningApp.MONTH_LABELS[PlanningApp.MONTHS.indexOf(currentMonth)]} ?`)) {
+                const monthIdx = PlanningApp.MONTHS.indexOf(currentMonth);
+                data.months[currentMonth] = PlanningApp.generateMonthData(monthIdx, config.year, config.staff, config.activities);
+                PlanningApp.saveData(data);
+                renderMonth();
                 alert('Mois réinitialisé !');
             }
-        });
-        
-        document.getElementById('addStaffActivityBtn')?.addEventListener('click', addActivity);
-        
+        }
+
         // Initialisation
-        const params = new URLSearchParams(window.location.search);
-        const monthKey = params.get('mois') || 'janvier';
-        App.init().then(() => {
-            renderMonth(monthKey);
-        });
-        
-        // Exposer la fonction pour app.js
-        window.renderMonth = renderMonth;
+        renderMonth();
     </script>
 </body>
 </html>
