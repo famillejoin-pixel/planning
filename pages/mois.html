@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning 2026 - Mois</title>
+    <title>Planning - Mois</title>
     <link rel="stylesheet" href="../css/style.css">
 </head>
 <body>
     <div class="app-container">
         <!-- Navigation -->
         <div class="nav-tabs">
-            <a href="../index.html">⚙️ Paramètres</a>
-            <a href="bilan.html">📊 Bilan</a>
-            <a href="mois.html?mois=janvier">📅 Janv</a>
-            <a href="mois.html?mois=fevrier">📅 Fév</a>
-            <a href="mois.html?mois=mars">📅 Mar</a>
-            <a href="mois.html?mois=avril">📅 Avr</a>
+            <a href="../index.html">🏠 Accueil</a>
+            <a href="bilan.html">📊 Bilan Annuel</a>
+            <a href="mois.html?mois=janvier">📅 Janvier</a>
+            <a href="mois.html?mois=fevrier">📅 Février</a>
+            <a href="mois.html?mois=mars">📅 Mars</a>
+            <a href="mois.html?mois=avril">📅 Avril</a>
             <a href="mois.html?mois=mai">📅 Mai</a>
             <a href="mois.html?mois=juin">📅 Juin</a>
-            <a href="mois.html?mois=juillet">📅 Juil</a>
+            <a href="mois.html?mois=juillet">📅 Juillet</a>
             <a href="mois.html?mois=aout">📅 Août</a>
-            <a href="mois.html?mois=septembre">📅 Sep</a>
-            <a href="mois.html?mois=octobre">📅 Oct</a>
-            <a href="mois.html?mois=novembre">📅 Nov</a>
-            <a href="mois.html?mois=decembre">📅 Déc</a>
+            <a href="mois.html?mois=septembre">📅 Septembre</a>
+            <a href="mois.html?mois=octobre">📅 Octobre</a>
+            <a href="mois.html?mois=novembre">📅 Novembre</a>
+            <a href="mois.html?mois=decembre">📅 Décembre</a>
         </div>
 
         <!-- Contenu -->
@@ -34,18 +34,35 @@
                     <span class="badge" id="moisStaffBadge">Staff: -</span>
                 </div>
             </div>
-            
+
+            <!-- Barre d'actions -->
+            <div class="actions-bar">
+                <div>
+                    <input type="text" id="searchInput" placeholder="🔍 Rechercher une date (ex: 15/01)" 
+                           onkeyup="filterTable()" style="width: 250px;">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-sm btn-success" onclick="exportToCSV()">📥 Exporter CSV</button>
+                    <button class="btn btn-sm" onclick="saveMonth()">💾 Sauvegarder</button>
+                    <button class="btn btn-sm btn-outline" onclick="resetMonth()">🔄 Réinitialiser</button>
+                </div>
+            </div>
+
+            <!-- Totaux du mois -->
+            <div id="monthTotals" style="margin-bottom: 15px; padding: 10px; background: #e8f4fc; border-radius: 6px; border: 1px solid #bdc3c7;">
+                <h3 style="margin-bottom: 8px; color: #2c3e50;">📊 Totaux du mois : 
+                    <span id="totalP" style="color: #27ae60; font-weight: bold;">0h</span> (P) / 
+                    <span id="totalR" style="color: #e74c3c; font-weight: bold;">0h</span> (R) / 
+                    <span id="totalDiff" style="color: #f39c12; font-weight: bold;">0h</span> (Diff)
+                </h3>
+            </div>
+
             <div class="table-wrap" id="moisTableWrap"></div>
             
             <div class="weekly-summary">
                 <h3>📅 Bilan hebdomadaire par moniteur</h3>
-                <p>Heures prévues / réalisées / écart.</p>
+                <p>Heures prévues / réalisées / écart. Cliquez sur un moniteur pour filtrer.</p>
                 <div class="table-wrap" id="weeklySummaryWrap"></div>
-            </div>
-            
-            <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
-                <button class="btn btn-sm" onclick="saveMonth()">💾 Sauvegarder</button>
-                <button class="btn btn-sm btn-outline" onclick="resetMonth()">🔄 Réinitialiser le mois</button>
             </div>
         </div>
     </div>
@@ -60,13 +77,14 @@
         // Charger la configuration et les données
         let config = PlanningApp.loadConfig();
         let data = PlanningApp.loadData(config);
+        let filteredRows = [];
 
         // Générer les options pour les heures (0 à 12 par pas de 0.5)
         function generateHourOptions(selectedValue) {
             let options = '';
             for (let h = 0; h <= 12; h += 0.5) {
                 const value = h.toFixed(1);
-                const display = h % 1 === 0 ? h.toFixed(0) : h.toFixed(1); // Affiche 2 au lieu de 2.0
+                const display = h % 1 === 0 ? h.toFixed(0) : h.toFixed(1);
                 options += `<option value="${value}" ${selectedValue === value ? 'selected' : ''}>${display}</option>`;
             }
             return options;
@@ -84,6 +102,56 @@
             });
         }
 
+        // Filtrer le tableau par date
+        function filterTable() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#moisTableWrap tbody tr:not(.month-header)');
+            
+            rows.forEach(row => {
+                const dateCell = row.querySelector('td:first-child');
+                if (dateCell) {
+                    const dateText = dateCell.textContent.toLowerCase();
+                    if (dateText.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Exporter en CSV
+        function exportToCSV() {
+            const monthIdx = PlanningApp.MONTHS.indexOf(currentMonth);
+            const monthLabel = PlanningApp.MONTH_LABELS[monthIdx];
+            const monthData = data.months[currentMonth] || [];
+            
+            let csv = 'Date,Jour,Semaine';
+            config.staff.forEach(name => {
+                csv += `,${name} Activité,${name} P,${name} R,${name} Diff`;
+            });
+            csv += '\n';
+            
+            monthData.forEach(row => {
+                csv += `${row.date},${row.day},${row.week}`;
+                config.staff.forEach(name => {
+                    const cell = row.staff[name] || { activity: '', P: 0, R: 0 };
+                    const diff = PlanningApp.getDiff(cell);
+                    csv += `,${cell.activity},${cell.P || 0},${cell.R || 0},${diff.toFixed(1)}`;
+                });
+                csv += '\n';
+            });
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `planning_${currentMonth}_${config.year}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            alert('✅ Export CSV terminé !');
+        }
+
         // Rendre le mois
         function renderMonth() {
             const monthIdx = PlanningApp.MONTHS.indexOf(currentMonth);
@@ -94,7 +162,7 @@
             const staff = config.staff;
             
             document.getElementById('moisTitle').textContent = `📅 ${monthLabel} ${year}`;
-            document.getElementById('moisStaffBadge').textContent = `Staff: ${staff.join(', ')}`;
+            document.getElementById('moisStaffBadge').textContent = `Staff: ${staff.length} moniteurs`;
             
             // Récupérer les données du mois
             let monthData = data.months[currentMonth];
@@ -103,6 +171,12 @@
                 data.months[currentMonth] = monthData;
                 PlanningApp.saveData(data);
             }
+            
+            // Calculer les totaux du mois
+            const { totals, staffTotals } = PlanningApp.calculateMonthTotals(data, currentMonth, staff);
+            document.getElementById('totalP').textContent = `${totals.P.toFixed(1)}h`;
+            document.getElementById('totalR').textContent = `${totals.R.toFixed(1)}h`;
+            document.getElementById('totalDiff').textContent = `${totals.Diff.toFixed(1)}h`;
             
             buildTable(monthData, staff);
             buildWeeklySummary(monthData, staff);
@@ -113,7 +187,7 @@
         function buildTable(monthData, staff) {
             if (!staff || staff.length === 0) {
                 document.getElementById('moisTableWrap').innerHTML = 
-                    '<p style="color:red;padding:20px;">Erreur: Aucun moniteur configuré. Veuillez vérifier les paramètres.</p>';
+                    '<p style="color:#e74c3c;padding:20px;text-align:center;">⚠️ Erreur: Aucun moniteur configuré. Veuillez vérifier les paramètres.</p>';
                 return;
             }
             
@@ -126,10 +200,18 @@
             
             // Colonnes pour chaque moniteur
             staff.forEach(name => {
-                html += `<th>${name}<br><span style="font-weight:400;font-size:0.55rem;">Act. / P / R / D</span></th>`;
+                html += `<th colspan="4">${name}</th>`;
             });
             
-            html += `<th style="min-width:28px;">🗑️</th></tr>
+            html += `<th style="min-width:28px;">✕</th></tr>
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th></th>`;
+            staff.forEach(name => {
+                html += `<th>Activité</th><th>P</th><th>R</th><th>Diff</th>`;
+            });
+            html += `<th></th></tr>
                 </thead>
                 <tbody>`;
             
@@ -158,49 +240,50 @@
                     else if (cell.R < cell.P) rColor = '#d4edda';
                     else rColor = '#fff3cd';
                     
-                    // Options pour P et R (0 à 12 par pas de 0.5)
+                    // Options pour P et R
                     const pOptions = generateHourOptions(cell.P || 0);
                     const rOptions = generateHourOptions(cell.R || 0);
                     
                     html += `<td>
-                        <div class="staff-activity-cell">
-                            <select class="activity-select" data-row="${rowIndex}" data-staff="${name}" 
-                                    onchange="updateActivity(${rowIndex}, '${name}', this.value)">
-                                ${config.activities.map(a => 
-                                    `<option value="${a}" ${cell.activity === a ? 'selected' : ''}>${a}</option>`
-                                ).join('')}
-                            </select>
-                            <div class="hours-row">
-                                <select class="hour-input p-input" data-row="${rowIndex}" data-staff="${name}" data-field="P"
-                                        onchange="updateHour(${rowIndex}, '${name}', 'P', this.value)"
-                                        style="background:white;">
-                                    ${pOptions}
-                                </select>
-                                <span style="font-weight:300;color:#999;">/</span>
-                                <select class="hour-input r-input" data-row="${rowIndex}" data-staff="${name}" data-field="R"
-                                        onchange="updateHour(${rowIndex}, '${name}', 'R', this.value)"
-                                        style="background:${rColor};">
-                                    ${rOptions}
-                                </select>
-                                <span class="diff-cell ${diffClass}">${diffVal.toFixed(1)}</span>
-                            </div>
-                        </div>
-                    </td>`;
+                        <select class="activity-select" data-row="${rowIndex}" data-staff="${name}" 
+                                onchange="updateActivity(${rowIndex}, '${name}', this.value)"
+                                title="Sélectionnez une activité">
+                            ${config.activities.map(a => 
+                                `<option value="${a}" ${cell.activity === a ? 'selected' : ''}>${a}</option>`
+                            ).join('')}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="hour-select" data-row="${rowIndex}" data-staff="${name}" data-field="P"
+                                onchange="updateHour(${rowIndex}, '${name}', 'P', this.value)"
+                                title="Heures prévues">
+                            ${pOptions}
+                        </select>
+                    </td>
+                    <td>
+                        <select class="hour-select" data-row="${rowIndex}" data-staff="${name}" data-field="R"
+                                onchange="updateHour(${rowIndex}, '${name}', 'R', this.value)"
+                                style="background:${rColor};"
+                                title="Heures réalisées">
+                            ${rOptions}
+                        </select>
+                    </td>
+                    <td class="${diffClass}">${diffVal.toFixed(1)}</td>`;
                 });
                 
                 html += `<td>
-                    <button class="delete-row-btn" style="background:none;border:none;color:#b91c1c;cursor:pointer;font-size:0.9rem;" 
-                            onclick="deleteRow(${rowIndex})">✕</button>
+                    <button class="delete-row-btn" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:1rem;"
+                            onclick="deleteRow(${rowIndex})" title="Supprimer cette ligne">✕</button>
                 </td></tr>`;
             });
             
             // Ligne des totaux
-            const { totals, staffTotals } = PlanningApp.calculateMonthTotals(data, currentMonth, staff);
             html += `<tr class="month-header">
                 <td colspan="3">Total mois</td>`;
             staff.forEach(name => {
                 const t = staffTotals[name];
-                html += `<td>${(t.P || 0).toFixed(1)} / ${(t.R || 0).toFixed(1)} / ${(t.Diff || 0).toFixed(1)}</td>`;
+                const diffClass = t.Diff > 0 ? 'diff-positive' : t.Diff < 0 ? 'diff-negative' : 'diff-zero';
+                html += `<td></td><td>${(t.P || 0).toFixed(1)}</td><td>${(t.R || 0).toFixed(1)}</td><td class="${diffClass}">${(t.Diff || 0).toFixed(1)}</td>`;
             });
             html += `<td></td></tr>
                 </tbody>
@@ -215,9 +298,9 @@
             let summary = '<table><thead><tr><th>Moniteur</th>';
             
             weeks.forEach(w => {
-                summary += `<th>Semaine ${w}<br><small>P / R / Écart</small></th>`;
+                summary += `<th>Sem. ${w}</th>`;
             });
-            summary += '<th>Total du mois<br><small>P / R / Écart</small></th></tr></thead><tbody>';
+            summary += '<th>Total mois</th></tr></thead><tbody>';
             
             staff.forEach(name => {
                 let tp = 0, tr = 0;
@@ -233,12 +316,12 @@
                     tp += p; tr += r;
                     const d = p - r;
                     const cls = d > 0 ? 'diff-positive' : d < 0 ? 'diff-negative' : 'diff-zero';
-                    summary += `<td>${p.toFixed(1)} / ${r.toFixed(1)} / <span class="${cls}">${d.toFixed(1)}</span></td>`;
+                    summary += `<td><span class="${cls}">${p.toFixed(1)} / ${r.toFixed(1)}</span></td>`;
                 });
                 
                 const d = tp - tr;
                 const cls = d > 0 ? 'diff-positive' : d < 0 ? 'diff-negative' : 'diff-zero';
-                summary += `<td><strong>${tp.toFixed(1)} / ${tr.toFixed(1)} / <span class="${cls}">${d.toFixed(1)}</span></strong></td></tr>`;
+                summary += `<td><strong class="${cls}">${tp.toFixed(1)} / ${tr.toFixed(1)}</strong></td></tr>`;
             });
             
             summary += '</tbody></table>';
@@ -248,6 +331,7 @@
         // Mettre à jour une activité
         function updateActivity(rowIndex, staffName, activity) {
             PlanningApp.updateCell(data, currentMonth, rowIndex, staffName, 'activity', activity);
+            PlanningApp.saveData(data);
             renderMonth();
         }
 
@@ -255,12 +339,13 @@
         function updateHour(rowIndex, staffName, field, value) {
             const numericValue = parseFloat(value) || 0;
             PlanningApp.updateCell(data, currentMonth, rowIndex, staffName, field, numericValue);
+            PlanningApp.saveData(data);
             renderMonth();
         }
 
         // Supprimer une ligne
         function deleteRow(rowIndex) {
-            if (confirm(`Supprimer la ligne du ${data.months[currentMonth][rowIndex]?.date || ''} ?`)) {
+            if (confirm('⚠️ Supprimer la ligne du ' + data.months[currentMonth][rowIndex]?.date + ' ?')) {
                 data.months[currentMonth].splice(rowIndex, 1);
                 PlanningApp.saveData(data);
                 renderMonth();
@@ -270,17 +355,17 @@
         // Sauvegarder le mois
         function saveMonth() {
             PlanningApp.saveData(data);
-            alert('Mois sauvegardé !');
+            alert('✅ Mois sauvegardé avec succès !');
         }
 
         // Réinitialiser le mois
         function resetMonth() {
-            if (confirm(`Réinitialiser le mois ${PlanningApp.MONTH_LABELS[PlanningApp.MONTHS.indexOf(currentMonth)]} ?`)) {
+            if (confirm('⚠️ Réinitialiser le mois ' + PlanningApp.MONTH_LABELS[PlanningApp.MONTHS.indexOf(currentMonth)] + ' ?')) {
                 const monthIdx = PlanningApp.MONTHS.indexOf(currentMonth);
                 data.months[currentMonth] = PlanningApp.generateMonthData(monthIdx, config.year, config.staff, config.activities);
                 PlanningApp.saveData(data);
                 renderMonth();
-                alert('Mois réinitialisé !');
+                alert('✅ Mois réinitialisé !');
             }
         }
 
