@@ -25,10 +25,11 @@ function renderBilan() {
     console.log('Staff pour le bilan:', staff);
     
     // Forcer le rechargement des données
-    const data = getPlanningData();
+    const data = getPlanningData(true); // forceReload = true
     console.log('Données disponibles:', Object.keys(data).filter(k => k !== '_year'));
     
-    // Vérifier que chaque mois contient les bons moniteurs
+    // Mettre à jour les moniteurs pour chaque mois ET sauvegarder
+    let needsSave = false;
     MONTHS.forEach(monthKey => {
         const monthData = data[monthKey] || [];
         if (monthData.length > 0) {
@@ -46,13 +47,19 @@ function renderBilan() {
                         });
                     });
                     setMonthData(monthKey, monthData);
+                    needsSave = true;
                 }
             }
         }
     });
-    
+
+    // Sauvegarder si nécessaire
+    if (needsSave) {
+        savePlanningData();
+    }
+
     // Recharger les données après mise à jour
-    const updatedData = getPlanningData();
+    const updatedData = getPlanningData(true);
     
     const staffTotals = {};
     const activityTotals = {};
@@ -81,34 +88,49 @@ function renderBilan() {
         });
     });
     
-    // Stats
-    let totalVoile = 0, totalHors = 0, totalRepos = 0;
+    // Stats : utiliser P ET R
+    let totalVoileP = 0, totalVoileR = 0;
+    let totalHorsP = 0, totalHorsR = 0;
+    let totalReposP = 0, totalReposR = 0;
     const voileActs = ['EDV', 'EDS', 'REGATE', 'CP', 'LOCATION'];
     const reposActs = ['REPOS', 'CONGES'];
+    
     MONTHS.forEach(m => {
         const monthData = updatedData[m] || [];
         monthData.forEach(row => {
             if (row.staff) {
                 Object.values(row.staff).forEach(s => {
                     const act = (s.activite || '').toUpperCase();
-                    if (reposActs.some(r => act.includes(r))) totalRepos += (s.P || 0);
-                    else if (voileActs.some(v => act.includes(v))) totalVoile += (s.P || 0);
-                    else if (act !== '') totalHors += (s.P || 0);
+                    const p = s.P || 0;
+                    const r = s.R || 0;
+                    
+                    if (reposActs.some(r => act.includes(r))) {
+                        totalReposP += p;
+                        totalReposR += r;
+                    } else if (voileActs.some(v => act.includes(v))) {
+                        totalVoileP += p;
+                        totalVoileR += r;
+                    } else if (act !== '') {
+                        totalHorsP += p;
+                        totalHorsR += r;
+                    }
                 });
             }
         });
     });
-    document.getElementById('totalVoile').textContent = totalVoile.toFixed(1) + ' h';
-    document.getElementById('totalHorsVoile').textContent = totalHors.toFixed(1) + ' h';
-    document.getElementById('totalReposConges').textContent = totalRepos.toFixed(1) + ' h';
+    
+    // Mettre à jour l'interface avec P et R
+    document.getElementById('totalVoile').textContent = `${totalVoileP.toFixed(1)}h (P) / ${totalVoileR.toFixed(1)}h (R)`;
+    document.getElementById('totalHorsVoile').textContent = `${totalHorsP.toFixed(1)}h (P) / ${totalHorsR.toFixed(1)}h (R)`;
+    document.getElementById('totalReposConges').textContent = `${totalReposP.toFixed(1)}h (P) / ${totalReposR.toFixed(1)}h (R)`;
     
     let totalP = 0, totalR = 0;
     staff.forEach(name => {
         totalP += staffTotals[name].P;
         totalR += staffTotals[name].R;
     });
-    document.getElementById('totalP').textContent = totalP.toFixed(1) + ' h';
-    document.getElementById('totalR').textContent = totalR.toFixed(1) + ' h';
+    document.getElementById('totalP').textContent = `${totalP.toFixed(1)}h (P)`;
+    document.getElementById('totalR').textContent = `${totalR.toFixed(1)}h (R)`;
     
     // Tableau récapitulatif
     let html = `<table><thead><tr><th>Mois</th>`;

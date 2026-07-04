@@ -174,18 +174,28 @@ function buildTable(data, staff) {
     html += `<td></td></tr></tbody></table>`;
     
     document.getElementById('moisTableWrap').innerHTML = html;
-    attachEvents();
     
-    // Initialiser les valeurs des sélecteurs
+    // Initialiser les valeurs des sélecteurs AVANT d'attacher les événements
     data.forEach((row, rowIndex) => {
         staff.forEach(name => {
-            const s = row.staff[name] || { P: 0, R: 0 };
+            const s = row.staff[name] || { activite: 'ACCUEIL', P: 0, R: 0 };
             const pSelect = document.querySelector(`.p-select[data-row="${rowIndex}"][data-staff="${name}"]`);
             const rSelect = document.querySelector(`.r-select[data-row="${rowIndex}"][data-staff="${name}"]`);
+            const activiteSelect = document.querySelector(`.activite-select[data-row="${rowIndex}"][data-staff="${name}"]`);
+            
             if (pSelect) pSelect.value = s.P || 0;
-            if (rSelect) rSelect.value = s.R || 0;
+            if (rSelect) {
+                rSelect.value = s.R || 0;
+                if (s.R > s.P) rSelect.style.background = '#f8d7da';
+                else if (s.R < s.P) rSelect.style.background = '#d4edda';
+                else rSelect.style.background = '#fff3cd';
+            }
+            if (activiteSelect) activiteSelect.value = s.activite || 'ACCUEIL';
         });
     });
+    
+    // Attacher les événements avec event delegation
+    attachEvents();
 }
 
 function buildWeeklySummary(data, staff) {
@@ -219,21 +229,18 @@ function buildWeeklySummary(data, staff) {
 function attachEvents() {
     const container = document.getElementById('moisTableWrap');
     
-    // Heures
-    container.querySelectorAll('.hour-select').forEach(sel => {
-        const newSel = sel.cloneNode(true);
-        sel.parentNode.replaceChild(newSel, sel);
-        newSel.addEventListener('change', function() {
-            const rowIdx = parseInt(this.dataset.row);
-            const staffName = this.dataset.staff;
-            const type = this.dataset.type;
-            const val = parseFloat(this.value);
+    // Utiliser event delegation pour les sélecteurs d'heures
+    container.addEventListener('change', function(e) {
+        if (e.target.classList.contains('hour-select')) {
+            const rowIdx = parseInt(e.target.dataset.row);
+            const staffName = e.target.dataset.staff;
+            const type = e.target.dataset.type;
+            const val = parseFloat(e.target.value);
             if (isNaN(val)) return;
             
             let data = getMonthData(currentMonthKey);
-            if (!data[rowIdx]) return;
-            if (!data[rowIdx].staff) data[rowIdx].staff = {};
-            if (!data[rowIdx].staff[staffName]) data[rowIdx].staff[staffName] = { activite: 'ACCUEIL', P: 0, R: 0, Diff: 0 };
+            if (!data[rowIdx] || !data[rowIdx].staff || !data[rowIdx].staff[staffName]) return;
+            
             data[rowIdx].staff[staffName][type] = val;
             const p = data[rowIdx].staff[staffName].P || 0;
             const r = data[rowIdx].staff[staffName].R || 0;
@@ -242,38 +249,33 @@ function attachEvents() {
             setMonthData(currentMonthKey, data);
             updateRowDisplay(rowIdx, staffName);
             updateTotals();
-        });
+        }
     });
     
-    // Activités
-    container.querySelectorAll('.activite-select').forEach(sel => {
-        const newSel = sel.cloneNode(true);
-        sel.parentNode.replaceChild(newSel, sel);
-        newSel.addEventListener('change', function() {
-            const rowIdx = parseInt(this.dataset.row);
-            const staffName = this.dataset.staff;
+    // Event delegation pour les sélecteurs d'activités
+    container.addEventListener('change', function(e) {
+        if (e.target.classList.contains('activite-select')) {
+            const rowIdx = parseInt(e.target.dataset.row);
+            const staffName = e.target.dataset.staff;
             let data = getMonthData(currentMonthKey);
-            if (!data[rowIdx]) return;
-            if (!data[rowIdx].staff) data[rowIdx].staff = {};
-            if (!data[rowIdx].staff[staffName]) data[rowIdx].staff[staffName] = { activite: 'ACCUEIL', P: 0, R: 0, Diff: 0 };
-            data[rowIdx].staff[staffName].activite = this.value;
+            if (!data[rowIdx] || !data[rowIdx].staff || !data[rowIdx].staff[staffName]) return;
+            
+            data[rowIdx].staff[staffName].activite = e.target.value;
             setMonthData(currentMonthKey, data);
-        });
+        }
     });
     
-    // Suppression
-    container.querySelectorAll('.delete-row-btn').forEach(btn => {
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        newBtn.addEventListener('click', function() {
-            const rowIdx = parseInt(this.dataset.row);
+    // Event delegation pour les boutons de suppression
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('delete-row-btn')) {
+            const rowIdx = parseInt(e.target.dataset.row);
             let data = getMonthData(currentMonthKey);
             if (confirm(`Supprimer la ligne du ${data[rowIdx]?.date || ''} ?`)) {
                 data.splice(rowIdx, 1);
                 setMonthData(currentMonthKey, data);
                 renderMonth(currentMonthKey);
             }
-        });
+        }
     });
 }
 
@@ -283,6 +285,7 @@ function updateRowDisplay(rowIdx, staffName) {
     const s = data[rowIdx].staff[staffName];
     const diffVal = (s.P || 0) - (s.R || 0);
     
+    // Mettre à jour le sélecteur R (fond coloré)
     const rSelect = document.querySelector(`.r-select[data-row="${rowIdx}"][data-staff="${staffName}"]`);
     if (rSelect) {
         rSelect.value = s.R || 0;
@@ -290,16 +293,26 @@ function updateRowDisplay(rowIdx, staffName) {
         else if (s.R < s.P) rSelect.style.background = '#d4edda';
         else rSelect.style.background = '#fff3cd';
     }
+    
+    // Mettre à jour le sélecteur P
     const pSelect = document.querySelector(`.p-select[data-row="${rowIdx}"][data-staff="${staffName}"]`);
     if (pSelect) pSelect.value = s.P || 0;
     
-    const diffSpan = document.querySelector(`.diff-cell[data-row="${rowIdx}"][data-staff="${staffName}"]`);
-    if (diffSpan) {
-        diffSpan.textContent = diffVal.toFixed(1);
-        diffSpan.className = 'diff-cell';
-        if (diffVal > 0) diffSpan.classList.add('diff-positive');
-        else if (diffVal < 0) diffSpan.classList.add('diff-negative');
-        else diffSpan.classList.add('diff-zero');
+    // Mettre à jour la différence
+    const row = document.querySelector(`tr[data-rowindex="${rowIdx}"]`);
+    if (row) {
+        // Trouver le diff-cell pour ce staff dans cette ligne
+        const staffCell = row.querySelector(`td:nth-child(${MONTHS.indexOf(currentMonthKey) + 4})`);
+        if (staffCell) {
+            const diffSpan = staffCell.querySelector('.diff-cell');
+            if (diffSpan) {
+                diffSpan.textContent = diffVal.toFixed(1);
+                diffSpan.className = 'diff-cell';
+                if (diffVal > 0) diffSpan.classList.add('diff-positive');
+                else if (diffVal < 0) diffSpan.classList.add('diff-negative');
+                else diffSpan.classList.add('diff-zero');
+            }
+        }
     }
 }
 

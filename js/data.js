@@ -2,6 +2,10 @@
 
 let _planningData = {};
 let _dataLoaded = false;
+let _dataCache = null;
+let _cacheTimestamp = 0;
+const CACHE_TTL = 5000; // 5 secondes
+let _saveTimeout = null;
 
 function loadPlanningData(year) {
     const currentYear = year || getCurrentYear();
@@ -42,25 +46,83 @@ function loadPlanningData(year) {
         _planningData._year = currentYear;
     }
     _dataLoaded = true;
+    _dataCache = _planningData;
+    _cacheTimestamp = Date.now();
     savePlanningData();
     return _planningData;
 }
 
 function savePlanningData() {
     _planningData._year = getCurrentYear();
-    localStorage.setItem(DATA_KEY, JSON.stringify(_planningData));
+    
+    // Compresser les données pour économiser de l'espace
+    const compressedData = {
+        _year: _planningData._year,
+        ...Object.fromEntries(
+            Object.entries(_planningData).map(([month, data]) => {
+                if (month === '_year') return [month, data];
+                return [
+                    month,
+                    data.map(row => ({
+                        date: row.date,
+                        jour: row.jour,
+                        semaine: row.semaine,
+                        staff: Object.fromEntries(
+                            Object.entries(row.staff || {}).map(([name, s]) => [
+                                name,
+                                { a: s.activite || 'ACCUEIL', P: s.P || 0, R: s.R || 0 }
+                            ])
+                        )
+                    }))
+                ];
+            })
+        )
+    };
+    
+    localStorage.setItem(DATA_KEY, JSON.stringify(compressedData));
     console.log('Données sauvegardées - Mois:', Object.keys(_planningData).filter(k => k !== '_year').length);
     console.log('Staff dans les données:', Object.keys(_planningData['janvier']?.[0]?.staff || {}));
 }
 
-function getPlanningData() { 
-    if (!_dataLoaded) loadPlanningData(getCurrentYear());
+function getPlanningData(forceReload = false) {
+    const now = Date.now();
+    if (!_dataLoaded || forceReload || (now - _cacheTimestamp) > CACHE_TTL) {
+        _dataLoaded = false;
+        loadPlanningData(getCurrentYear());
+        _cacheTimestamp = now;
+    }
     // Recharger depuis localStorage pour être sûr
     const saved = localStorage.getItem(DATA_KEY);
     if (saved) {
         try {
-            _planningData = JSON.parse(saved);
-        } catch(e) {}
+            const decompressedData = JSON.parse(saved);
+            // Décompresser les données
+            _planningData = {
+                _year: decompressedData._year,
+                ...Object.fromEntries(
+                    Object.entries(decompressedData).map(([month, data]) => {
+                        if (month === '_year') return [month, data];
+                        return [
+                            month,
+                            data.map(row => ({
+                                date: row.date,
+                                jour: row.jour,
+                                semaine: row.semaine,
+                                staff: Object.fromEntries(
+                                    Object.entries(row.staff || {}).map(([name, s]) => [
+                                        name,
+                                        { activite: s.a || 'ACCUEIL', P: s.P || 0, R: s.R || 0, Diff: (s.P || 0) - (s.R || 0) }
+                                    ])
+                                )
+                            }))
+                        ];
+                    })
+                )
+            };
+            _dataCache = _planningData;
+        } catch(e) {
+            console.error('Erreur parsing données:', e);
+        }
     }
     return _planningData; 
 }
@@ -68,7 +130,8 @@ function getPlanningData() {
 function getMonthData(monthKey) { 
     // Forcer le rechargement des données
     const allData = getPlanningData();
-    const data = allData[monthKey] || [];
+    let data = allData[monthKey] || [];
+    
     // Vérifier que les données contiennent les bons moniteurs
     const staff = getStaffNames();
     if (data.length > 0) {
@@ -97,16 +160,43 @@ function setMonthData(monthKey, data) {
     const allData = getPlanningData();
     allData[monthKey] = data;
     allData._year = getCurrentYear();
-    localStorage.setItem(DATA_KEY, JSON.stringify(allData));
     _planningData = allData;
-    console.log(`Données du mois ${monthKey} sauvegardées (${data.length} lignes)`);
-    console.log(`Staff pour ${monthKey}:`, Object.keys(data[0]?.staff || {}));
+    _dataCache = allData;
+    _cacheTimestamp = Date.now();
+
+    // Débounce la sauvegarde
+    clearTimeout(_saveTimeout);
+    _saveTimeout = setTimeout(() => {
+        localStorage.setItem(DATA_KEY, JSON.stringify({
+            _year: allData._year,
+            ...Object.fromEntries(
+                Object.entries(allData).map(([month, d]) => {
+                    if (month === '_year') return [month, d];
+                    return [
+                        month,
+                        d.map(row => ({
+                            date: row.date,
+                            jour: row.jour,
+                            semaine: row.semaine,
+                            staff: Object.fromEntries(
+                                Object.entries(row.staff || {}).map(([name, s]) => [
+                                    name,
+                                    { a: s.activite || 'ACCUEIL', P: s.P || 0, R: s.R || 0 }
+                                ])
+                            )
+                        }))
+                    ];
+                })
+            )
+        }));
+        console.log(`Données du mois ${monthKey} sauvegardées (${data.length} lignes)`);
+    }, 300); // Attendre 300ms après la dernière modification
 }
 
 function generateMonthData(monthIdx, year) {
     const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
     const data = [];
-    const staff = getStaffNames();
+    const staff = getStaffNames() || _staffNames; // Fallback aux valeurs par défaut
     console.log('Génération des données avec staff:', staff);
     for (let d = 1; d <= daysInMonth; d++) {
         const date = new Date(year, monthIdx, d);
@@ -138,6 +228,7 @@ function getISOWeekNumber(dateStr) {
 
 function refreshData() {
     _dataLoaded = false;
+    _dataCache = null;
     return loadPlanningData(getCurrentYear());
 }
 
