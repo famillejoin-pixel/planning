@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planning 2026 - Mois</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation -->
+        <div class="nav-tabs">
+            <a href="../index.html">⚙️ Paramètres</a>
+            <a href="bilan.html">📊 Bilan</a>
+            <a href="mois.html?mois=janvier">📅 Janv</a>
+            <a href="mois.html?mois=fevrier">📅 Fév</a>
+            <a href="mois.html?mois=mars">📅 Mar</a>
+            <a href="mois.html?mois=avril">📅 Avr</a>
+            <a href="mois.html?mois=mai">📅 Mai</a>
+            <a href="mois.html?mois=juin">📅 Juin</a>
+            <a href="mois.html?mois=juillet">📅 Juil</a>
+            <a href="mois.html?mois=aout">📅 Aoû</a>
+            <a href="mois.html?mois=septembre">📅 Sep</a>
+            <a href="mois.html?mois=octobre">📅 Oct</a>
+            <a href="mois.html?mois=novembre">📅 Nov</a>
+            <a href="mois.html?mois=decembre">📅 Déc</a>
+        </div>
+
+        <!-- Contenu -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2 id="moisTitle">📅 Janvier 2026</h2>
+                <div>
+                    <span class="badge" id="moisStaffBadge">Staff: -</span>
+                    <button class="btn btn-sm btn-outline" id="addStaffActivityBtn">+ Activité</button>
+                </div>
+            </div>
+            
+            <div class="table-wrap" id="moisTableWrap"></div>
+            
+            <div class="weekly-summary">
+                <h3>📈 Bilan hebdomadaire par moniteur</h3>
+                <p>Heures prévues / réalisées / écart. Ce bilan se met à jour automatiquement.</p>
+                <div class="table-wrap" id="weeklySummaryWrap"></div>
+            </div>
+            
+            <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+                <button class="btn btn-sm" id="saveMonthBtn">💾 Sauvegarder</button>
+                <button class="btn btn-sm btn-outline" id="resetMonthBtn">↺ Réinitialiser le mois</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/data.js"></script>
+    <script src="../js/mois.js"></script>
+</body>
+</html>
