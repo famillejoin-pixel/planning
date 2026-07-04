@@ -8,6 +8,8 @@ function initMoisPage() {
     
     console.log('=== INITIALISATION MOIS ===');
     console.log('Mois:', currentMonthKey);
+    console.log('MONTHS:', MONTHS);
+    console.log('MONTH_LABELS:', MONTH_LABELS);
     
     // Charger la configuration
     loadConfig();
@@ -146,7 +148,7 @@ function buildTable(data, staff) {
                         <select class="hour-select r-select" data-row="${rowIndex}" data-staff="${name}" data-type="R" style="background:${rColor};">
                             ${hourOptions}
                         </select>
-                        <span class="diff-cell ${diffClass}">${diffVal.toFixed(1)}</span>
+                        <span class="diff-cell ${diffClass}" data-row="${rowIndex}" data-staff="${name}">${diffVal.toFixed(1)}</span>
                     </div>
                 </div>
             </td>`;
@@ -175,7 +177,7 @@ function buildTable(data, staff) {
     
     document.getElementById('moisTableWrap').innerHTML = html;
     
-    // Initialiser les valeurs des sélecteurs AVANT d'attacher les événements
+    // Initialiser les valeurs des sélecteurs
     data.forEach((row, rowIndex) => {
         staff.forEach(name => {
             const s = row.staff[name] || { activite: 'ACCUEIL', P: 0, R: 0 };
@@ -194,7 +196,7 @@ function buildTable(data, staff) {
         });
     });
     
-    // Attacher les événements avec event delegation
+    // Attacher les événements avec event delegation sur document
     attachEvents();
 }
 
@@ -227,10 +229,9 @@ function buildWeeklySummary(data, staff) {
 }
 
 function attachEvents() {
-    const container = document.getElementById('moisTableWrap');
-    
-    // Utiliser event delegation pour les sélecteurs d'heures
-    container.addEventListener('change', function(e) {
+    // Utiliser event delegation sur document pour capturer tous les événements
+    document.addEventListener('change', function(e) {
+        // Gestion des sélecteurs d'heures (P et R)
         if (e.target.classList.contains('hour-select')) {
             const rowIdx = parseInt(e.target.dataset.row);
             const staffName = e.target.dataset.staff;
@@ -238,8 +239,13 @@ function attachEvents() {
             const val = parseFloat(e.target.value);
             if (isNaN(val)) return;
             
+            console.log(`Modification détectée: ligne ${rowIdx}, moniteur ${staffName}, type ${type}, valeur ${val}`);
+            
             let data = getMonthData(currentMonthKey);
-            if (!data[rowIdx] || !data[rowIdx].staff || !data[rowIdx].staff[staffName]) return;
+            if (!data[rowIdx] || !data[rowIdx].staff || !data[rowIdx].staff[staffName]) {
+                console.error('Données introuvables pour:', rowIdx, staffName);
+                return;
+            }
             
             data[rowIdx].staff[staffName][type] = val;
             const p = data[rowIdx].staff[staffName].P || 0;
@@ -250,10 +256,8 @@ function attachEvents() {
             updateRowDisplay(rowIdx, staffName);
             updateTotals();
         }
-    });
-    
-    // Event delegation pour les sélecteurs d'activités
-    container.addEventListener('change', function(e) {
+        
+        // Gestion des sélecteurs d'activités
         if (e.target.classList.contains('activite-select')) {
             const rowIdx = parseInt(e.target.dataset.row);
             const staffName = e.target.dataset.staff;
@@ -265,8 +269,8 @@ function attachEvents() {
         }
     });
     
-    // Event delegation pour les boutons de suppression
-    container.addEventListener('click', function(e) {
+    // Gestion des boutons de suppression (clic)
+    document.addEventListener('click', function(e) {
         if (e.target.classList.contains('delete-row-btn')) {
             const rowIdx = parseInt(e.target.dataset.row);
             let data = getMonthData(currentMonthKey);
@@ -281,7 +285,10 @@ function attachEvents() {
 
 function updateRowDisplay(rowIdx, staffName) {
     const data = getMonthData(currentMonthKey);
-    if (!data[rowIdx] || !data[rowIdx].staff || !data[rowIdx].staff[staffName]) return;
+    if (!data[rowIdx] || !data[rowIdx].staff || !data[rowIdx].staff[staffName]) {
+        console.error('Données introuvables pour updateRowDisplay:', rowIdx, staffName);
+        return;
+    }
     const s = data[rowIdx].staff[staffName];
     const diffVal = (s.P || 0) - (s.R || 0);
     
@@ -298,21 +305,16 @@ function updateRowDisplay(rowIdx, staffName) {
     const pSelect = document.querySelector(`.p-select[data-row="${rowIdx}"][data-staff="${staffName}"]`);
     if (pSelect) pSelect.value = s.P || 0;
     
-    // Mettre à jour la différence
-    const row = document.querySelector(`tr[data-rowindex="${rowIdx}"]`);
-    if (row) {
-        // Trouver le diff-cell pour ce staff dans cette ligne
-        const staffCell = row.querySelector(`td:nth-child(${MONTHS.indexOf(currentMonthKey) + 4})`);
-        if (staffCell) {
-            const diffSpan = staffCell.querySelector('.diff-cell');
-            if (diffSpan) {
-                diffSpan.textContent = diffVal.toFixed(1);
-                diffSpan.className = 'diff-cell';
-                if (diffVal > 0) diffSpan.classList.add('diff-positive');
-                else if (diffVal < 0) diffSpan.classList.add('diff-negative');
-                else diffSpan.classList.add('diff-zero');
-            }
-        }
+    // Mettre à jour la différence (utiliser data-row et data-staff sur le diff-cell)
+    const diffSpan = document.querySelector(`.diff-cell[data-row="${rowIdx}"][data-staff="${staffName}"]`);
+    if (diffSpan) {
+        diffSpan.textContent = diffVal.toFixed(1);
+        diffSpan.className = 'diff-cell';
+        if (diffVal > 0) diffSpan.classList.add('diff-positive');
+        else if (diffVal < 0) diffSpan.classList.add('diff-negative');
+        else diffSpan.classList.add('diff-zero');
+    } else {
+        console.warn('Diff cell non trouvé pour:', rowIdx, staffName);
     }
 }
 
