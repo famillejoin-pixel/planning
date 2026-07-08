@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning 2026 - Accueil</title>
+    <title>Planning - Accueil</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="app-container">
         <!-- Navigation -->
         <div class="nav-tabs">
-            <a href="index.html" class="active">⚙️ Paramètres</a>
-            <a href="pages/bilan.html">📊 Bilan</a>
-            <a href="pages/mois.html?mois=janvier">📅 Janv</a>
-            <a href="pages/mois.html?mois=fevrier">📅 Fév</a>
-            <a href="pages/mois.html?mois=mars">📅 Mar</a>
-            <a href="pages/mois.html?mois=avril">📅 Avr</a>
+            <a href="index.html" class="active">🏠 Accueil</a>
+            <a href="pages/bilan.html">📊 Bilan Annuel</a>
+            <a href="pages/mois.html?mois=janvier">📅 Janvier</a>
+            <a href="pages/mois.html?mois=fevrier">📅 Février</a>
+            <a href="pages/mois.html?mois=mars">📅 Mars</a>
+            <a href="pages/mois.html?mois=avril">📅 Avril</a>
             <a href="pages/mois.html?mois=mai">📅 Mai</a>
             <a href="pages/mois.html?mois=juin">📅 Juin</a>
-            <a href="pages/mois.html?mois=juillet">📅 Juil</a>
+            <a href="pages/mois.html?mois=juillet">📅 Juillet</a>
             <a href="pages/mois.html?mois=aout">📅 Août</a>
-            <a href="pages/mois.html?mois=septembre">📅 Sep</a>
-            <a href="pages/mois.html?mois=octobre">📅 Oct</a>
-            <a href="pages/mois.html?mois=novembre">📅 Nov</a>
-            <a href="pages/mois.html?mois=decembre">📅 Déc</a>
+            <a href="pages/mois.html?mois=septembre">📅 Septembre</a>
+            <a href="pages/mois.html?mois=octobre">📅 Octobre</a>
+            <a href="pages/mois.html?mois=novembre">📅 Novembre</a>
+            <a href="pages/mois.html?mois=decembre">📅 Décembre</a>
         </div>
 
         <!-- Contenu -->
         <div class="panel">
             <div class="panel-header">
-                <h2>⚙️ Paramètres du Planning</h2>
+                <h2>⚙️ Configuration du Planning</h2>
+                <div class="tooltip">
+                    <span>❓</span>
+                    <span class="tooltiptext">Configurez ici l'année, le club, les moniteurs et les activités disponibles.</span>
+                </div>
             </div>
 
             <div class="config-section">
@@ -40,16 +44,17 @@
                     </div>
                     <div>
                         <label>Club</label>
-                        <input type="text" id="clubInput" value="ASPTT Voile">
+                        <input type="text" id="clubInput" value="ASPTT Voile" placeholder="Nom du club">
                     </div>
                     <div class="full-width">
                         <label>Moniteurs (séparés par des virgules)</label>
                         <input type="text" id="staffInput" 
-                               value="Romain, Thibau, James, Swann, Soen, Cenzo, Marine, Léa, Erwan, Marin, Marie, Nils, Florian, Iris, Mael">
+                               value="Romain, Thibau, James, Swann, Soen, Cenzo, Marine, Léa, Erwan, Marin, Marie, Nils, Florian, Iris, Mael"
+                               placeholder="Ex: Jean, Paul, Marie">
                     </div>
                     <div class="full-width">
                         <label>Activités (une par ligne)</label>
-                        <textarea id="activitesInput">ACCUEIL
+                        <textarea id="activitesInput" placeholder="Ex: ACCUEIL&#10;EDV&#10;EDS">ACCUEIL
 EDV
 EDS
 ATELIER
@@ -75,16 +80,28 @@ SCOLAIRE+CP</textarea>
                     </div>
                 </div>
                 <div class="config-actions">
-                    <button class="btn" onclick="saveConfig()">💾 Enregistrer</button>
+                    <button class="btn btn-success" onclick="saveConfig()">✅ Enregistrer</button>
                     <button class="btn btn-outline" onclick="resetConfig()">🔄 Réinitialiser</button>
-                    <button class="btn btn-outline btn-danger" onclick="resetAllData()">🗑️ Effacer les données</button>
+                    <button class="btn btn-danger" onclick="resetAllData()">🗑️ Effacer toutes les données</button>
                     <span class="status-save" id="saveStatus">✅ Sauvegarde automatique activée</span>
                 </div>
             </div>
 
-            <div style="margin-top: 30px;">
-                <h3 style="font-size:0.9rem; color:#475569; margin-bottom:12px;">Accès rapide par mois :</h3>
+            <div style="margin-top: 25px;">
+                <h3 style="font-size:1rem; color:#2c3e50; margin-bottom:12px;">📅 Accès rapide par mois :</h3>
                 <div class="month-grid" id="monthGrid"></div>
+            </div>
+
+            <div class="config-section" style="margin-top: 20px;">
+                <h3>ℹ️ Guide d'utilisation</h3>
+                <p style="color:#7f8c8d; line-height:1.6;">
+                    <strong>Pour les secrétaires :</strong><br>
+                    1. Configurez les paramètres ci-dessus (année, club, moniteurs, activités).<br>
+                    2. Cliquez sur un mois dans le menu ou ci-dessous pour accéder au planning.<br>
+                    3. Dans le planning mensuel, utilisez les listes déroulantes pour sélectionner les heures.<br>
+                    4. Les données sont sauvegardées automatiquement.<br>
+                    5. Consultez le bilan annuel pour voir les totaux et graphiques.
+                </p>
             </div>
         </div>
     </div>
@@ -128,25 +145,25 @@ SCOLAIRE+CP</textarea>
                 document.getElementById('saveStatus').textContent = '✅ Sauvegarde automatique activée';
             }, 2000);
             
-            alert('Paramètres enregistrés !');
+            alert('✅ Paramètres enregistrés avec succès !');
         }
 
         // Réinitialiser la configuration
         function resetConfig() {
-            if (confirm('Réinitialiser les paramètres ?')) {
+            if (confirm('⚠️ Réinitialiser les paramètres aux valeurs par défaut ?')) {
                 config = { ...PlanningApp.DEFAULT_CONFIG };
                 PlanningApp.saveConfig(config);
                 loadConfigToForm();
-                alert('Paramètres réinitialisés.');
+                alert('✅ Paramètres réinitialisés.');
             }
         }
 
         // Réinitialiser toutes les données
         function resetAllData() {
-            if (confirm('Effacer TOUTES les données saisies ?')) {
+            if (confirm('⚠️ Effacer TOUTES les données saisies ? Cette action est irréversible.')) {
                 data = PlanningApp.generateYearData(config);
                 PlanningApp.saveData(data);
-                alert('Données effacées.');
+                alert('✅ Toutes les données ont été effacées.');
                 location.reload();
             }
         }
